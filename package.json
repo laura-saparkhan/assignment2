@@ -3,11 +3,7 @@
   "version": "1.0.0",
   "description": "",
   "main": "index.js",
-  "scripts": {
-    "test": "playwright test",
-    "report": "playwright show-report",
-    "merge-reports": "playwright merge-reports --config merge.config.ts ./all-blob-reports"
-  },
+  "scripts": {},
   "keywords": [],
   "author": "",
   "license": "ISC",

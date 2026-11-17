@@ -1,15 +1,8 @@
-# Dependencies
-node_modules/
 
-# Playwright output
+# Playwright
+node_modules/
 /test-results/
 /playwright-report/
 /blob-report/
-/all-blob-reports/
-/reports/
 /playwright/.cache/
 /playwright/.auth/
-
-# Local CI runs (act)
-/.act-artifacts/
-.secrets
