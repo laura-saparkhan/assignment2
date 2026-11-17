@@ -1,12 +1,12 @@
 
 import { test, expect } from '../fixtures/pages.fixture';
-import { createAndLoginAccount, registerAccount } from './helpers/create-test-account';
+import { registerAccountViaApi } from './helpers/create-test-account';
 
 test('customer can request a password reset', async ({
   page,
   forgotPasswordPage,
 }) => {
-  const { email, password } = await registerAccount(page);
+  const { email } = await registerAccountViaApi(page);
   await forgotPasswordPage.open();
 
   await forgotPasswordPage.submitEmail(email);
