@@ -50,7 +50,7 @@ A trace is opened by downloading `test-results-N` and running
 
 | Setting | Value on CI | Why |
 | --- | --- | --- |
-| `forbidOnly` | `true` | a forgotten `test.only` fails the run instead of silently running one test and reporting green |
+| `forbidOnly` | `true` | a forgotten `test.only` fails the run instead of silently running one test and reporting green (demonstrated in run #33, screenshot 10 under *Evidence*) |
 | `retries` | `2` | the suite runs against a live public site; an unstable test is marked *flaky* rather than red |
 | `workers` | `1` | one browser per runner IP; the site's Cloudflare protection scores bursts of traffic from a single IP (see *Known issue* below) |
 | `reporter` | `list`, `blob`, `junit` | readable logs, mergeable per-shard output, machine-readable XML |
@@ -254,6 +254,20 @@ verification" page instead of the account page. The URL checks after the click
 still completed, which is the weakness described under *What remains exposed*.
 
 ![Same trace at the end: /account served as the Cloudflare verification page](screnshots/ci/ci-trace-cloudflare.png)
+
+**10. A forgotten `test.only` fails the run.** To check `forbidOnly`, a throwaway
+branch `ci/forbid-only-demo` changed one line only: `test(` to `test.only(` on the
+second test of `forgot-password.spec.ts`. Locally that would run just this one
+test and report green. On CI, run #33 failed in all four shards before any test
+started, and the branch was then deleted without merging.
+
+![Run #33: all four shards failed on the forgotten test.only](screnshots/ci/ci-forbid-only-run.png)
+
+The `Run Playwright tests` step of shard 1 shows the reason:
+`Error: item focused with '.only' is not allowed due to the 'forbidOnly' option in
+'../playwright.config.ts'`, pointing at `forgot-password.spec.ts:19`.
+
+![Shard 1 log: forbidOnly error pointing at the test.only on line 19](screnshots/ci/ci-forbid-only-log.png)
 
 ### Runtime
 
