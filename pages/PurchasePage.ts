@@ -32,8 +32,10 @@ export class PurchasePage {
         this.successMessage = page.getByText(/Payment was successful/i);
     }
 
+    /* The test's single full page load. The account is already signed in
+       through the API (see tests/helpers/create-test-account.ts). */
     async openHome() {
-        await this.homeLink.click();
+        await this.page.goto('/');
     }
 
 
@@ -86,10 +88,11 @@ export class PurchasePage {
 
                 excludedHrefs.add(href);
 
-                // Return to the catalog through the app's own navigation.
-                // A full reload here would be one more request that Cloudflare
-                // can answer with a bot challenge on CI runners.
-                await this.homeLink.click();
+                // Return to the catalog with the browser's Back button. The
+                // Home link reloads the whole page, and every extra page load
+                // is one more request Cloudflare can challenge on CI runners;
+                // Back stays inside the single-page app.
+                await this.page.goBack();
                 await expect(this.page).toHaveURL('/');
                 await expect(this.products.first()).toBeVisible();
 

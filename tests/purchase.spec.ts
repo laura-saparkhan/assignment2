@@ -1,14 +1,15 @@
 
 import { test, expect } from '../fixtures/pages.fixture';
-import { createAndLoginAccount } from './helpers/create-test-account';
+import { createAccountAndSignInViaApi } from './helpers/create-test-account';
 
 test('user can purchase two different products', async ({
   page,
   purchasePage,
 }) => {
-  await createAndLoginAccount(page);
+  // Account created and signed in through the API: this test is about
+  // purchasing, and the login form is covered by login.spec.ts.
+  await createAccountAndSignInViaApi(page);
 
-  // Continue with your existing purchase flow
   await purchasePage.openHome();
 
   const excludedHrefs = new Set<string>();
