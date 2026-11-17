@@ -15,10 +15,32 @@ type Pages = {
 };
 
 type AutoFixtures = {
+  ciPacing: void;
   cloudflareCheck: void;
 };
 
+/* Pause before each test on CI, and a longer one before a retry. */
+const CI_PAUSE_MS = 3_000;
+const CI_RETRY_PAUSE_MS = 15_000;
+
 export const test = base.extend<Pages & AutoFixtures>({
+  /* On CI only: wait before each test so a runner does not hit the site in
+     rapid bursts, and wait longer before a retry, since an immediate retry
+     arrives right after the request that was challenged. Cloudflare's
+     decision to challenge can depend partly on bursts of traffic from one IP.
+     The fixture has its own timeout, so the pause does not use up the
+     test's 30 seconds. */
+  ciPacing: [
+    async ({}, use, testInfo) => {
+      if (process.env.CI) {
+        const pauseMs = testInfo.retry > 0 ? CI_RETRY_PAUSE_MS : CI_PAUSE_MS;
+        await new Promise((resolve) => setTimeout(resolve, pauseMs));
+      }
+      await use();
+    },
+    { auto: true, timeout: 30_000 },
+  ],
+
   /* Runs automatically around every test. If a test failed while the site was
      showing Cloudflare's bot-verification page, the failure is labelled in the
      report and the CI log, so it is not mistaken for an application bug. */
