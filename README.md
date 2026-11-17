@@ -68,7 +68,20 @@ are registered at runtime with generated unique e-mail addresses.
 
 ### Known issue: Cloudflare bot protection on CI runners
 
-The application under test, `practicesoftwaretesting.com`, sits behind Cloudflare.
+**In short:** the whole suite passes when it runs locally, but on GitHub Actions
+some tests can fail even though nothing is wrong with the tests or the
+application. The test site's Cloudflare protection deliberately blocks visits it
+suspects are bots, and visits from GitHub's servers look like that to it. Instead
+of the page, the browser gets a *"Verify you are human"* check (screenshot below),
+so the test never reaches the page it needs and its assertions never get to run.
+For example, *A customer can register and log in successfully* failed while
+waiting for the e-mail field on the login page, so its final check, that the URL
+contains `/account` after logging in, was never reached. A failure like this means
+"the site refused to serve the CI runner", not "the feature is broken".
+
+![Cloudflare challenge page served to the GitHub Actions runner instead of the application](screnshots/cloudflare-challenge-ci.png)
+
+**In detail:** the application under test, `practicesoftwaretesting.com`, sits behind Cloudflare.
 GitHub-hosted runners come from datacenter IP ranges that Cloudflare treats as
 higher risk, so on CI the site sometimes answers a page load with a
 **"Performing security verification — Verify you are human"** page instead of the
@@ -93,6 +106,9 @@ routing and never fetch a new document.
   redundant `page.goto()` / `page.reload()` calls, including a reload of the login
   page the test was already on;
 - `workers: 1` on CI, so each runner IP drives one browser at a time;
+- on CI, a 3-second pause before each test and a 15-second pause before a retry,
+  so a runner does not hit the site in rapid bursts (this adds about 3 seconds per
+  test to the run time);
 - an automatic fixture in `fixtures/pages.fixture.ts` checks every failed test for
   the challenge page and labels it `blocked-by-cloudflare` in the HTML report and
   the CI log, so such a failure is never mistaken for an application bug.
