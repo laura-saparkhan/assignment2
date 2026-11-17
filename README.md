@@ -156,7 +156,10 @@ passes locally (9 of 9).
 
 **Result of the second round.** On GitHub Actions, the next push run and
 pull-request run (commit `ce16938`) were fully green: all 4 shards and the merge
-job in both, 10 of 10 checks (screenshot 6 under *Evidence*).
+job in both, 10 of 10 checks (screenshot 6 under *Evidence*). After the merge,
+the first attempt of the push run on `main` (run #22) still failed and passed when
+re-run; the six timing runs that followed (#25–#27, #29–#31) were all green on the
+first attempt.
 
 **What remains exposed.** Two tests still trigger the site's own page load after
 a form, because the form is what they test: `register.spec.ts` (the site loads
@@ -166,7 +169,8 @@ Cloudflare serves its challenge at that address. So on CI these two checks can
 pass without the page having rendered. A stronger check, such as the account
 page's heading being visible, would make them fail whenever Cloudflare
 intervenes. The Assignment 1 assertions were kept, and the limitation is
-documented here instead.
+documented here instead. The trace in screenshot 9 under *Evidence* shows exactly
+this case.
 
 The mitigation reduces exposure but cannot guarantee it: whether Cloudflare
 challenges a request is decided on its side. The only complete fix is to run the application
@@ -234,16 +238,51 @@ shard repeats the same setup (checkout, `npm ci`, browser install).
 
 ![Usage page of run #17: run time of each job, 3 min 27 s in total](screnshots/ci/ci-usage-run-time.png)
 
+**8. A CI trace opened in trace.playwright.dev.** From the `test-results` artefact
+of run #22's first attempt: the retry of the login test
+(`login.spec.ts:5`), recorded because of `trace: 'on-first-retry'`. The left panel
+lists every action with its duration (the API registration `POST`, `Navigate`
+to `/auth/login`, the two `Fill`s, `Click` and the `Expect`s), the strip at the
+top is the timeline, and the centre shows the page as it was at the selected
+action: here, the login form just before the e-mail is typed.
+
+![Trace of the login test open in trace.playwright.dev, at the Fill e-mail action](screnshots/ci/ci-trace-viewer.png)
+
+**9. The same trace, after the login click.** Selecting the last step shows what
+the browser actually received at `/account`: the Cloudflare "Performing security
+verification" page instead of the account page. The URL checks after the click
+still completed, which is the weakness described under *What remains exposed*.
+
+![Same trace at the end: /account served as the Cloudflare verification page](screnshots/ci/ci-trace-cloudflare.png)
+
 ### Runtime
 
 | Configuration | Total run time | Run tests step (slowest shard) | Run |
 | --- | --- | --- | --- |
-| 1 job, no sharding | _X min Y s_ | _X min Y s_ | [run](LINK) |
-| 4 shards + merge | _X min Y s_ | _X min Y s_ | [run](LINK) |
+| 1 job, no sharding | 2 min 24 s | 1 min 10 s | [run #29](https://github.com/laura-saparkhan/assignment2/actions/runs/44141352744) |
+| 4 shards + merge | 1 min 22 s | 22 s | [run #25](https://github.com/laura-saparkhan/assignment2/actions/runs/44136881332) |
 
-Median of 3 runs triggered via `workflow_dispatch`.
+Median of 3 runs triggered via `workflow_dispatch`, all green on the first attempt:
 
-**Conclusion:** _to be written from the measured numbers._
+| Configuration | Run | Total run time | Run tests step (slowest shard) |
+| --- | --- | --- | --- |
+| 1 job | [#29](https://github.com/laura-saparkhan/assignment2/actions/runs/44141352744) | 2 min 24 s | 1 min 5 s |
+| 1 job | [#30](https://github.com/laura-saparkhan/assignment2/actions/runs/44142063034) | 2 min 29 s | 1 min 13 s |
+| 1 job | [#31](https://github.com/laura-saparkhan/assignment2/actions/runs/44142774190) | 1 min 58 s | 1 min 10 s |
+| 4 shards | [#25](https://github.com/laura-saparkhan/assignment2/actions/runs/44136881332) | 1 min 22 s | 21 s |
+| 4 shards | [#26](https://github.com/laura-saparkhan/assignment2/actions/runs/44137194183) | 1 min 8 s | 25 s |
+| 4 shards | [#27](https://github.com/laura-saparkhan/assignment2/actions/runs/44137667257) | 1 min 25 s | 22 s |
+
+The single-job runs were made on a temporary branch, `ci/timing-1shard`, whose
+only change is the matrix (`shardIndex: [1]`, `shardTotal: [1]`); the merge job
+still runs there, so both rows include it.
+
+**Conclusion:** splitting the suite into 4 shards cut the run from 2 min 24 s to
+1 min 22 s (about 43 % faster) and the test step from 1 min 10 s to 22 s, but not
+by 4×, because every shard repeats the same ~30 s of setup (checkout, `npm ci`,
+browser install). For the same reason sharding costs more runner time in total,
+about 3 min 10 s per run against about 2 min 20 s for a single job (median sum of
+all job times).
 
 ### Running locally
 
