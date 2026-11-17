@@ -269,6 +269,12 @@ The `Run Playwright tests` step of shard 1 shows the reason:
 
 ![Shard 1 log: forbidOnly error pointing at the test.only on line 19](screnshots/ci/ci-forbid-only-log.png)
 
+**11. Status badge for `main`.** After the pull request was merged, the badge at
+the top of the *CI* section on the repository front page shows **passing**, the
+result of the latest workflow run on `main`.
+
+![Repository front page: the Playwright Tests badge shows passing](screnshots/ci/ci-badge-main.png)
+
 ### Runtime
 
 | Configuration | Total run time | Run tests step (slowest shard) | Run |
