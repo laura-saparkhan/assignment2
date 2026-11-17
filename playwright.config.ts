@@ -25,8 +25,12 @@ export default defineConfig({
      retried and marked "flaky" rather than failing the whole run. */
   retries: isCI ? 2 : 0,
 
-  /* GitHub-hosted runners have 2-4 vCPUs. */
-  workers: isCI ? 2 : undefined,
+  /* One browser per shard on CI. The site sits behind Cloudflare, which scores
+     bursts of traffic from a single IP; GitHub runners already come from
+     datacenter ranges that it treats as higher risk, so two browsers sharing
+     one runner IP make a challenge more likely. Sharding across 4 runners
+     still provides the parallelism. */
+  workers: isCI ? 1 : undefined,
 
   /* On CI: `list` for readable logs, `blob` so the shards can be merged
      into one report, `junit` as machine-readable XML.
@@ -41,8 +45,12 @@ export default defineConfig({
 
   /* Shared settings for all the projects below. See https://playwright.dev/docs/api/class-testoptions. */
   use: {
-    /* Base URL for all tests; overridable from CI via the BASE_URL variable. */
-    baseURL: process.env.BASE_URL ?? 'https://practicesoftwaretesting.com',
+    /* Base URL for all tests, overridable from CI via the BASE_URL variable.
+       Note `||` rather than `??`: when the repository variable is not set,
+       GitHub Actions substitutes an empty string, which is not nullish, so
+       `??` would leave baseURL empty and every relative goto('/') would fail
+       with "Cannot navigate to invalid URL". */
+    baseURL: process.env.BASE_URL || 'https://practicesoftwaretesting.com',
 
     /* Trace is recorded on the first retry, i.e. for exactly the attempt
        that failed, and is uploaded as a CI artefact. */

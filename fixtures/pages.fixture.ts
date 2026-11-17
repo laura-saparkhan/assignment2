@@ -14,7 +14,37 @@ type Pages = {
   purchasePage: PurchasePage;
 };
 
-export const test = base.extend<Pages>({
+type AutoFixtures = {
+  cloudflareCheck: void;
+};
+
+export const test = base.extend<Pages & AutoFixtures>({
+  /* Runs automatically around every test. If a test failed while the site was
+     showing Cloudflare's bot-verification page, the failure is labelled in the
+     report and the CI log, so it is not mistaken for an application bug. */
+  cloudflareCheck: [
+    async ({ page }, use, testInfo) => {
+      await use();
+
+      if (testInfo.status === testInfo.expectedStatus) {
+        return;
+      }
+
+      const challenged = await page
+        .getByText('Performing security verification')
+        .isVisible()
+        .catch(() => false);
+
+      if (challenged) {
+        const description =
+          'practicesoftwaretesting.com served a Cloudflare bot-verification page instead of the application.';
+        testInfo.annotations.push({ type: 'blocked-by-cloudflare', description });
+        console.log(`[blocked-by-cloudflare] ${testInfo.title}: ${description}`);
+      }
+    },
+    { auto: true },
+  ],
+
   loginPage: async ({ page }, use) => {
     await use(new LoginPage(page));
   },

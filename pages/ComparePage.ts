@@ -2,6 +2,7 @@ import { type Page, type Locator, expect } from '@playwright/test';
 
 export class ComparePage {
     readonly page: Page;
+    readonly homeLink: Locator;
     readonly compareLink: Locator;
     readonly selectedProductsMessage: Locator;
     readonly comparedProductNames: Locator;
@@ -15,6 +16,7 @@ export class ComparePage {
     constructor(page: Page) {
         this.page = page;
 
+        this.homeLink = page.locator('[data-test="nav-home"]');
         this.compareLink = page.locator('[data-test="compare-link"]');
         this.selectedProductsMessage = page.getByText('2 product(s) selected');
         this.comparedProductNames = page.locator('[data-test="product-name"]');
@@ -63,7 +65,10 @@ export class ComparePage {
     async openFirstProductExcept(
         excludedHrefs: Set<string>
     ): Promise<{ name: string; price: string; href: string }> {
-        await this.page.goto('/');
+        // Back to the catalog through the app's own navigation rather than a
+        // full reload, which Cloudflare could answer with a bot challenge.
+        await this.homeLink.click();
+        await expect(this.page).toHaveURL('/');
 
         while (true) {
             await expect(this.products.first()).toBeVisible();

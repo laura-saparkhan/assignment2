@@ -52,7 +52,7 @@ A trace is opened by downloading `test-results-N` and running
 | --- | --- | --- |
 | `forbidOnly` | `true` | a forgotten `test.only` fails the run instead of silently running one test and reporting green |
 | `retries` | `2` | the suite runs against a live public site; an unstable test is marked *flaky* rather than red |
-| `workers` | `2` | GitHub-hosted runners have 2–4 vCPUs |
+| `workers` | `1` | one browser per runner IP; the site's Cloudflare protection scores bursts of traffic from a single IP (see *Known issue* below) |
 | `reporter` | `list`, `blob`, `junit` | readable logs, mergeable per-shard output, machine-readable XML |
 | `trace` | `on-first-retry` | a trace of exactly the attempt that failed |
 | `screenshot` / `video` | `only-on-failure` / `retain-on-failure` | failure evidence without bloating green runs |
@@ -65,6 +65,44 @@ so nothing about the Assignment 1 workflow changes.
 (Settings → Secrets and variables → Actions → Variables) and falls back to
 `https://practicesoftwaretesting.com`. No credentials are hardcoded: test accounts
 are registered at runtime with generated unique e-mail addresses.
+
+### Known issue: Cloudflare bot protection on CI runners
+
+The application under test, `practicesoftwaretesting.com`, sits behind Cloudflare.
+GitHub-hosted runners come from datacenter IP ranges that Cloudflare treats as
+higher risk, so on CI the site sometimes answers a page load with a
+**"Performing security verification — Verify you are human"** page instead of the
+application. Locally, from a residential IP, this never happens — which is why the
+suite was green on a laptop and red in Actions.
+
+**How it was diagnosed.** The failing tests timed out waiting for
+`[data-test="email"]`. The `test-failed-1.png` screenshot in the `test-results-N`
+artefact showed the Cloudflare challenge page. Retries did not help: each retry
+gets a fresh browser context from the same flagged IP.
+
+**What the pattern showed.** In the failing run, every test's *first* page load got
+through (9 of 9). Both failures happened on a *second* full page load made right
+after registering an account. A challenge page can only be returned for a full
+document request; clicks inside the Angular single-page app are client-side
+routing and never fetch a new document.
+
+**Mitigation in this repository:**
+
+- every test performs exactly **one** full page load; all later navigation uses
+  the app's own links (home, cart, sign-in), as a real user would. This removed 4
+  redundant `page.goto()` / `page.reload()` calls, including a reload of the login
+  page the test was already on;
+- `workers: 1` on CI, so each runner IP drives one browser at a time;
+- an automatic fixture in `fixtures/pages.fixture.ts` checks every failed test for
+  the challenge page and labels it `blocked-by-cloudflare` in the HTML report and
+  the CI log, so such a failure is never mistaken for an application bug.
+
+This reduces exposure but cannot guarantee it: whether Cloudflare challenges a
+request is decided on its side. The only complete fix is to run the application
+inside the pipeline — the project is open source and ships Docker Compose
+([testsmith-io/practice-software-testing](https://github.com/testsmith-io/practice-software-testing)),
+and `BASE_URL` already lets the suite target `http://localhost:4200` with no test
+changes. Solving or bypassing the challenge was deliberately not attempted.
 
 ### Runtime
 
