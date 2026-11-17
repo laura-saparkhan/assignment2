@@ -8,8 +8,11 @@ export async function createAndLoginAccount(page: Page) {
 
   const { email, password } = await registerAccount(page);
 
-  // Log in with the same credentials
-  await loginPage.open();
+  // Registration already redirects to the login page (asserted at the end of
+  // registerAccount), so log in right there instead of reloading it. Every
+  // extra full-page load is one more request that Cloudflare can answer with
+  // a bot challenge when the suite runs on a CI runner.
+  await expect(loginPage.emailInput).toBeVisible();
   await loginPage.emailInput.fill(email);
   await loginPage.passwordInput.fill(password);
   await loginPage.loginButton.click();

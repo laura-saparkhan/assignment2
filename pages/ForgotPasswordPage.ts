@@ -32,8 +32,13 @@ export class ForgotPasswordPage {
   }
 
   async open() {
-    await this.page.reload();
-    await this.page.goto('/');
+    // Do a full page load only if this test has not opened the site yet.
+    // A test that already navigated (e.g. after registering) stays inside
+    // the single-page app and uses its links, which never re-fetch the page
+    // and so can never be answered with a Cloudflare challenge.
+    if (!this.page.url().startsWith('http')) {
+      await this.page.goto('/');
+    }
     await this.signInLink.click();
     await this.forgotPasswordLink.click();
   }

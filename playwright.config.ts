@@ -1,35 +1,62 @@
 import { defineConfig, devices } from '@playwright/test';
 
 /**
- * Read environment variables from file.
- * https://github.com/motdotla/dotenv
- */
-// import dotenv from 'dotenv';
-// import path from 'path';
-// dotenv.config({ path: path.resolve(__dirname, '.env') });
-
-/**
+ * Playwright configuration.
+ *
+ * All CI-specific behaviour is switched on by the single `CI` environment
+ * variable, which GitHub Actions sets automatically. Without it the config
+ * behaves exactly as it did for Assignment 1 on a local machine.
+ *
  * See https://playwright.dev/docs/test-configuration.
  */
+const isCI = !!process.env.CI;
+
 export default defineConfig({
   testDir: './tests',
-  /* Run tests in files in parallel */
+
+  /* Shards split individual tests, not whole files. */
   fullyParallel: true,
-  /* Fail the build on CI if you accidentally left test.only in the source code. */
-  forbidOnly: !!process.env.CI,
-  /* Retry on CI only */
-  retries: process.env.CI ? 2 : 0,
-  /* Opt out of parallel tests on CI. */
-  workers: process.env.CI ? 1 : undefined,
-  /* Reporter to use. See https://playwright.dev/docs/test-reporters */
-  reporter: 'html',
+
+  /* A forgotten test.only must fail the pipeline instead of silently
+     running a single test and reporting green. */
+  forbidOnly: isCI,
+
+  /* The suite runs against a live public site, so an unstable test is
+     retried and marked "flaky" rather than failing the whole run. */
+  retries: isCI ? 2 : 0,
+
+  /* One browser per shard on CI. The site sits behind Cloudflare, which scores
+     bursts of traffic from a single IP; GitHub runners already come from
+     datacenter ranges that it treats as higher risk, so two browsers sharing
+     one runner IP make a challenge more likely. Sharding across 4 runners
+     still provides the parallelism. */
+  workers: isCI ? 1 : undefined,
+
+  /* On CI: `list` for readable logs, `blob` so the shards can be merged
+     into one report, `junit` as machine-readable XML.
+     Locally: the familiar HTML report. */
+  reporter: isCI
+    ? [
+        ['list'],
+        ['blob'],
+        ['junit', { outputFile: 'reports/junit.xml' }],
+      ]
+    : [['list'], ['html', { open: 'on-failure' }]],
+
   /* Shared settings for all the projects below. See https://playwright.dev/docs/api/class-testoptions. */
   use: {
-  /* Base URL for all tests */
-    baseURL: 'https://practicesoftwaretesting.com',
+    /* Base URL for all tests, overridable from CI via the BASE_URL variable.
+       Note `||` rather than `??`: when the repository variable is not set,
+       GitHub Actions substitutes an empty string, which is not nullish, so
+       `??` would leave baseURL empty and every relative goto('/') would fail
+       with "Cannot navigate to invalid URL". */
+    baseURL: process.env.BASE_URL || 'https://practicesoftwaretesting.com',
 
-    /* Collect trace when retrying the failed test */
+    /* Trace is recorded on the first retry, i.e. for exactly the attempt
+       that failed, and is uploaded as a CI artefact. */
     trace: 'on-first-retry',
+    screenshot: 'only-on-failure',
+    video: 'retain-on-failure',
   },
 
   /* Configure projects for major browsers */
@@ -38,42 +65,14 @@ export default defineConfig({
       name: 'chromium',
       use: { ...devices['Desktop Chrome'] },
     },
-
-    // {
-    //   name: 'firefox',
-    //   use: { ...devices['Desktop Firefox'] },
-    // },
-
-    // {
-    //   name: 'webkit',
-    //   use: { ...devices['Desktop Safari'] },
-    // },
-
-    /* Test against mobile viewports. */
-    // {
-    //   name: 'Mobile Chrome',
-    //   use: { ...devices['Pixel 5'] },
-    // },
-    // {
-    //   name: 'Mobile Safari',
-    //   use: { ...devices['iPhone 12'] },
-    // },
-
-    /* Test against branded browsers. */
-    // {
-    //   name: 'Microsoft Edge',
-    //   use: { ...devices['Desktop Edge'], channel: 'msedge' },
-    // },
-    // {
-    //   name: 'Google Chrome',
-    //   use: { ...devices['Desktop Chrome'], channel: 'chrome' },
-    // },
   ],
 
-  /* Run your local dev server before starting the tests */
-  // webServer: {
-  //   command: 'npm run start',
-  //   url: 'http://localhost:3000',
-  //   reuseExistingServer: !process.env.CI,
-  // },
+  /* The application under test is an external site, so no webServer is
+     needed. If it ever moves into this repository:
+     webServer: {
+       command: 'npm run start',
+       url: 'http://localhost:3000',
+       reuseExistingServer: !isCI,
+     },
+  */
 });

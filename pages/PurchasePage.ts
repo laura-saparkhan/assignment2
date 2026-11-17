@@ -4,6 +4,7 @@ import { type Page, type Locator, expect } from '@playwright/test';
 export class PurchasePage {
     readonly page: Page;
     readonly homeLink: Locator;
+    readonly cartLink: Locator;
     readonly products: Locator;
     readonly nextPageButton: Locator;
     readonly cartAlert: Locator;
@@ -18,6 +19,7 @@ export class PurchasePage {
         this.page = page;
 
         this.homeLink = page.locator('[data-test="nav-home"]');
+        this.cartLink = page.locator('[data-test="nav-cart"]');
         this.products = page.locator('a[data-test^="product-"]');
         this.nextPageButton = page.locator('[data-test="pagination-next"]');
         this.cartAlert = page.getByRole('alert');
@@ -84,8 +86,11 @@ export class PurchasePage {
 
                 excludedHrefs.add(href);
 
-                // Return to the catalog before selecting another product
-                await this.page.goto('/');
+                // Return to the catalog through the app's own navigation.
+                // A full reload here would be one more request that Cloudflare
+                // can answer with a bot challenge on CI runners.
+                await this.homeLink.click();
+                await expect(this.page).toHaveURL('/');
                 await expect(this.products.first()).toBeVisible();
 
                 return { name, href };
@@ -119,7 +124,9 @@ export class PurchasePage {
 
 
     async openCheckout() {
-        await this.page.goto('/checkout');
+        // Open the cart from the navigation bar, as a user would, instead of
+        // a full page load of /checkout.
+        await this.cartLink.click();
         await expect(this.page).toHaveURL(/\/checkout/);
         await expect(this.checkoutStep1).toBeVisible();
     }
